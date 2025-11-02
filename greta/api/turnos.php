@@ -315,14 +315,28 @@ function buscarClientes(PDO $pdo, string $termino = '', string $dni = ''): array
 /**
  * Genera disponibilidad considerando la duración del servicio
  */
+/**
+ * Genera disponibilidad considerando la duración del servicio
+ */
 function generarDisponibilidad(string $fecha, array $ocupados, string $servicioId): array {
     $dow = (int)date('w', strtotime($fecha));
     if ($dow === 0) return [];
 
-    $ocupadosMap = [];
+    // ⚠️ CORRECCIÓN: Crear mapa de horas ocupadas CONSIDERANDO DURACIÓN
+    $horasOcupadas = [];
     foreach ($ocupados as $turno) {
-        $hora = substr($turno['hora'], 0, 5);
-        $ocupadosMap[$hora] = true;
+        $horaInicio = new DateTime($turno['fecha'] . ' ' . $turno['hora']);
+        $duracionTurno = obtenerDuracionServicio($servicioId);
+        $horaFin = clone $horaInicio;
+        $horaFin->modify("+{$duracionTurno} minutes");
+        
+        // Marcar todas las horas dentro de este rango como ocupadas
+        $horaActual = clone $horaInicio;
+        while ($horaActual < $horaFin) {
+            $horaStr = $horaActual->format('H:i');
+            $horasOcupadas[$horaStr] = true;
+            $horaActual->modify('+60 minutes'); // Avanzar de hora en hora
+        }
     }
 
     $disponibles = [];
@@ -351,11 +365,20 @@ function generarDisponibilidad(string $fecha, array $ocupados, string $servicioI
             $fechaHoraInicio = new DateTime("{$fecha} {$horarioInicio}:00");
             $fechaHoraFin = new DateTime("{$fecha} {$horarioFin}:00");
             
-            // Verificar que no esté ocupado Y que quepa en el horario
-            if ($horaFin <= 20 && !isset($ocupadosMap[$horarioInicio])) {
-                // ⚠️ MODIFICADO: Marcar como pasado solo si:
-                // - La fecha es anterior a hoy, O
-                // - Es hoy pero el turno YA TERMINÓ (hora de fin ya pasó)
+            // ⚠️ CORRECCIÓN: Verificar que NO esté en horas ocupadas
+            $estaOcupado = false;
+            $horaCheck = clone $fechaHoraInicio;
+            while ($horaCheck < $fechaHoraFin) {
+                $horaCheckStr = $horaCheck->format('H:i');
+                if (isset($horasOcupadas[$horaCheckStr])) {
+                    $estaOcupado = true;
+                    break;
+                }
+                $horaCheck->modify('+60 minutes');
+            }
+            
+            if ($horaFin <= 20 && !$estaOcupado) {
+                // Verificar si es pasado
                 $esPasado = ($fecha < $hoy) || ($fecha === $hoy && $fechaHoraFin < $ahora);
                 
                 $disponibles[] = [
@@ -380,10 +403,9 @@ function generarDisponibilidad(string $fecha, array $ocupados, string $servicioI
             $fechaHoraInicio = new DateTime("{$fecha} {$horarioInicio}:00");
             $fechaHoraFin = new DateTime("{$fecha} {$horarioFin}:00");
             
-            if (!isset($ocupadosMap[$horarioInicio])) {
-                // ⚠️ MODIFICADO: Marcar como pasado solo si:
-                // - La fecha es anterior a hoy, O
-                // - Es hoy pero el turno YA TERMINÓ (hora de fin ya pasó)
+            // ⚠️ CORRECCIÓN: Verificar que NO esté en horas ocupadas
+            if (!isset($horasOcupadas[$horarioInicio])) {
+                // Verificar si es pasado
                 $esPasado = ($fecha < $hoy) || ($fecha === $hoy && $fechaHoraFin < $ahora);
                 
                 $disponibles[] = [
@@ -406,25 +428,7 @@ function combinarEventos(array $disponibles, array $ocupados, string $servicioId
     $ahora = new DateTime();
     $hoy = $ahora->format('Y-m-d');
 
-    // Agregar horarios disponibles y pasados
-    foreach ($disponibles as $slot) {
-        $esPasado = ($slot['estado'] === 'pasado');
-        $duracion = $slot['duracion'] ?? 60;
-        
-        $eventos[] = [
-            'title' => $esPasado ? 'Disponible' : 'Disponible',
-            'start' => $slot['start'],
-            'end' => $slot['end'],
-            'color' => $esPasado ? '#95a5a6' : '#4caf50',
-            'extendedProps' => [
-                'estado' => $slot['estado'],
-                'servicioId' => $servicioId,
-                'duracion' => $duracion
-            ]
-        ];
-    }
-
-    // Agregar turnos ocupados
+    // ⚠️ CORRECCIÓN: Primero agregar turnos OCUPADOS (tienen prioridad)
     foreach ($ocupados as $turno) {
         $fechaTurno = $turno['fecha'];
         $horaTurno = new DateTime($turno['fecha'] . ' ' . $turno['hora']);
@@ -434,9 +438,7 @@ function combinarEventos(array $disponibles, array $ocupados, string $servicioId
         $horaFinTurno = clone $horaTurno;
         $horaFinTurno->modify("+{$duracion} minutes");
         
-        // ⚠️ MODIFICADO: Marcar como pasado solo si:
-        // - La fecha es anterior a hoy, O
-        // - Es hoy pero el turno YA TERMINÓ (hora de fin ya pasó)
+        // Verificar si es pasado
         $esPasado = ($fechaTurno < $hoy) || ($fechaTurno === $hoy && $horaFinTurno < $ahora);
         
         $eventos[] = [
@@ -456,6 +458,43 @@ function combinarEventos(array $disponibles, array $ocupados, string $servicioId
                 'duracion' => $duracion
             ]
         ];
+    }
+
+    // ⚠️ CORRECCIÓN: Luego agregar DISPONIBLES, verificando que no se solapen con ocupados
+    foreach ($disponibles as $slot) {
+        $slotInicio = new DateTime($slot['start']);
+        $slotFin = new DateTime($slot['end']);
+        
+        // Verificar si este slot se solapa con algún turno ocupado
+        $seSolapa = false;
+        foreach ($ocupados as $turno) {
+            $turnoInicio = new DateTime($turno['inicio']);
+            $turnoDuracion = obtenerDuracionServicio($servicioId);
+            $turnoFin = clone $turnoInicio;
+            $turnoFin->modify("+{$turnoDuracion} minutes");
+            
+            if ($slotInicio < $turnoFin && $slotFin > $turnoInicio) {
+                $seSolapa = true;
+                break;
+            }
+        }
+        
+        if (!$seSolapa) {
+            $esPasado = ($slot['estado'] === 'pasado');
+            $duracion = $slot['duracion'] ?? 60;
+            
+            $eventos[] = [
+                'title' => $esPasado ? 'Disponible' : 'Disponible',
+                'start' => $slot['start'],
+                'end' => $slot['end'],
+                'color' => $esPasado ? '#95a5a6' : '#4caf50',
+                'extendedProps' => [
+                    'estado' => $slot['estado'],
+                    'servicioId' => $servicioId,
+                    'duracion' => $duracion
+                ]
+            ];
+        }
     }
 
     return $eventos;

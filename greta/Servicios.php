@@ -1,7 +1,75 @@
 <?php 
 // Detectar la página actual
 $pagina_actual = basename($_SERVER['PHP_SELF']);
+
+// Conexión a la base de datos para obtener servicios
+include("conexion.php");
+
+// Obtener servicios activos de la base de datos
+$servicios_activos = [];
+$sql = "SELECT * FROM servicio WHERE estado = 1 ORDER BY nombre ASC";
+$result = $conn->query($sql);
+
+if ($result && $result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        $servicios_activos[] = $row;
+    }
+}
+
+// Cerrar conexión
+$conn->close();
+
+// SISTEMA MEJORADO DE IMÁGENES - POR NOMBRE ORIGINAL
+$imagenes_servicios = [
+    'Bronceado' => 'img/bronceado 2.png',
+    'Faciales' => 'img/faciales.png',
+    'Esculpidas' => 'img/uñas 11.png', 
+    'Pestañas' => 'img/Pestañas.jpg',
+    'Perfilado de Cejas' => 'img/laminado.jpg',
+    'Microblading' => 'img/microblanding 2.png',
+    'Microshading' => 'img/microblanding 2.png',
+    'Semipermanente' => 'img/semipermanente.jpg',
+    'Kapping' => 'img/kapping.jpg',
+    'Masajes' => 'img/vacia.webp'
+];
+
+// Mapeo de íconos para cada servicio
+$iconos_servicios = [
+    'Bronceado' => '☀️',
+    'Faciales' => '✨',
+    'Esculpidas' => '💎',
+    'Pestañas' => '👁️',
+    'Perfilado de Cejas' => '✏️',
+    'Microblading' => '🎨',
+    'Microshading' => '🌸',
+    'Semipermanente' => '💅',
+    'Kapping' => '🔧',
+    'Masajes' => '💆'
+];
+
+// Mapeo de imágenes de fondo para el carrusel
+$fondos_servicios = [
+    'Bronceado' => 'img/bronceado 6.jpg',
+    'Faciales' => 'img/faciales 4 (2).jpg',
+    'Esculpidas' => 'img/uñas 4.avif', 
+    'Pestañas' => 'img/Pestañas 4.jpg',
+    'Perfilado de Cejas' => 'img/laminado 3.webp',
+    'Microblading' => 'img/microblading 5.avif',
+    'Microshading' => 'img/microblading 6.webp',
+    'Semipermanente' => 'img/semipermanente 3.jpg',
+    'Kapping' => 'img/kapping 4.avif',
+    'Masajes' => 'img/vacia.webp'
+];
+
+// Imágenes de fondo por defecto para servicios sin imagen específica
+$fondos_default = [
+    'img/bronceado 2.png',
+    'img/faciales.png',
+    'img/uñas 11.png',
+    'img/Pestañas.jpg'
+];
 ?>
+
 
 <!DOCTYPE html>
 <html lang="es">
@@ -90,60 +158,88 @@ $pagina_actual = basename($_SERVER['PHP_SELF']);
       50% { opacity: 0.5; }
     }
 
-    /* ===== CARRUSEL GRANDE Y PROFESIONAL ===== */
+    /* ===== CARRUSEL CON IMÁGENES GRANDES PERO BIEN VISIBLES ===== */
     .swiper-grande {
       width: 100%;
-      height: 80vh;
-      min-height: 600px;
+      height: 60vh;
+      min-height: 550px;
       margin: 0 auto;
       position: relative;
     }
     
-    .swiper-slide-grande {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    }
+    /* Contenedor del slide */
+.swiper-slide-grande {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0c0c0c;
+}
+/* Backdrop blur que rellena todo el slide */
+.slide-backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: 50% 50%;
+  filter: blur(20px) brightness(0.6);
+  transform: scale(1.1); /* evita ver bordes del blur */
+  z-index: 1;
+}
     
-    .slide-background {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-size: cover;
-      background-position: center;
-      transition: transform 0.8s ease;
-    }
+    /* Contenedor de la imagen principal */
+.slide-image-container {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3; /* por encima del blur */
+  overflow: hidden;
+}
     
-    .swiper-slide-grande:hover .slide-background {
-      transform: scale(1.05);
-    }
+ /* Imagen principal: SIEMPRE visible completa */
+.slide-image {
+  width: 100%;
+  height: 100%;
+  object-fit: center; /* llena el carrusel ahora que es 16:9 */
+  object-position: center;
+  transition: transform 1.2s ease, filter 0.3s ease;
+  filter: brightness(0.9);
+}
+
+
     
-    .slide-overlay {
+    /* Hover sutil (opcional) */
+.swiper-slide-grande:hover .slide-image {
+  transform: scale(1.02);
+  filter: brightness(1);
+}
+    .slide-overlay {/* Overlay con textos ya estaba en 2; súbelo a 3 para ir por encima de la foto */
+
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
       background: linear-gradient(135deg, 
-        rgba(0,0,0,0.7) 0%, 
-        rgba(0,0,0,0.4) 50%, 
-        rgba(0,0,0,0.7) 100%);
+        rgba(0,0,0,0.85) 0%, 
+        rgba(0,0,0,0.5) 50%, 
+        rgba(0,0,0,0.85) 100%);
       display: flex;
       align-items: center;
       justify-content: center;
+      z-index: 3;
     }
     
     .slide-content {
       text-align: center;
       color: white;
-      max-width: 600px;
-      padding: 0 20px;
-      transform: translateY(50px);
+      max-width: 800px;
+      padding: 0 40px;
+      transform: translateY(20px);
       opacity: 0;
-      transition: all 0.8s ease;
+      transition: all 1s ease;
+      z-index: 3;
     }
     
     .swiper-slide-active .slide-content {
@@ -152,97 +248,174 @@ $pagina_actual = basename($_SERVER['PHP_SELF']);
     }
     
     .slide-icon {
-      font-size: 4rem;
-      margin-bottom: 20px;
+      font-size: 4.5rem;
+      margin-bottom: 25px;
       background: linear-gradient(135deg, #f0c0d0, #e91e63);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       animation: float 3s ease-in-out infinite;
+      text-shadow: 0 5px 15px rgba(0,0,0,0.5);
     }
     
     @keyframes float {
       0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-10px); }
+      50% { transform: translateY(-15px); }
     }
     
     .slide-title {
-      font-size: 3.5rem;
+      font-size: 4rem;
       font-weight: 700;
-      margin-bottom: 20px;
+      margin-bottom: 25px;
       background: linear-gradient(135deg, #ffffff, #f0c0d0);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      text-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      text-shadow: 0 8px 25px rgba(0,0,0,0.5);
+      line-height: 1.1;
     }
     
     .slide-description {
-      font-size: 1.3rem;
-      margin-bottom: 30px;
+      font-size: 1.4rem;
+      margin-bottom: 20px;
       line-height: 1.6;
-      opacity: 0.9;
+      opacity: 0.95;
+      min-height: 70px;
+      font-weight: 300;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.7);
+    }
+    
+    .slide-precio {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #f0c0d0;
+      margin-bottom: 20px;
+      text-shadow: 0 4px 15px rgba(240, 192, 208, 0.3);
+    }
+    
+    .slide-duracion {
+      display: inline-block;
+      background: rgba(240, 192, 208, 0.25);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 25px;
+      font-size: 1.1rem;
+      margin-bottom: 30px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      font-weight: 500;
+    }
+    
+    /* BOTONES */
+    .slide-buttons {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
     }
     
     .slide-button {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
       background: linear-gradient(135deg, #f0c0d0, #e91e63);
       color: white;
-      padding: 15px 35px;
+      padding: 15px 30px;
       border-radius: 30px;
       text-decoration: none;
       font-weight: 600;
       font-size: 1.1rem;
-      transition: all 0.3s ease;
-      box-shadow: 0 10px 25px rgba(240, 192, 208, 0.3);
+      transition: all 0.4s ease;
+      box-shadow: 0 10px 25px rgba(240, 192, 208, 0.4);
+      border: none;
+      cursor: pointer;
+      min-width: 160px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .slide-button:before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s ease;
+    }
+    
+    .slide-button:hover:before {
+      left: 100%;
     }
     
     .slide-button:hover {
-      transform: translateY(-3px) scale(1.05);
-      box-shadow: 0 15px 35px rgba(240, 192, 208, 0.5);
+      transform: translateY(-5px) scale(1.05);
+      box-shadow: 0 15px 35px rgba(240, 192, 208, 0.6);
+    }
+    
+    .slide-button.detalles {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+    }
+    
+    .slide-button.detalles:hover {
+      box-shadow: 0 15px 35px rgba(102, 126, 234, 0.6);
+    }
+    
+    .slide-button.reservar {
+      background: linear-gradient(135deg, #f0c0d0, #e91e63);
     }
     
     /* Navegación del carrusel */
     .swiper-button-next-grande,
     .swiper-button-prev-grande {
       color: #f0c0d0;
-      background: rgba(0,0,0,0.5);
-      width: 60px;
-      height: 60px;
+      background: rgba(0,0,0,0.6);
+      width: 70px;
+      height: 70px;
       border-radius: 50%;
       backdrop-filter: blur(10px);
-      transition: all 0.3s ease;
+      transition: all 0.4s ease;
+      z-index: 10;
+      border: 2px solid rgba(240, 192, 208, 0.3);
     }
     
     .swiper-button-next-grande:after,
     .swiper-button-prev-grande:after {
-      font-size: 24px;
+      font-size: 28px;
       font-weight: bold;
     }
     
     .swiper-button-next-grande:hover,
     .swiper-button-prev-grande:hover {
       background: rgba(240, 192, 208, 0.2);
-      transform: scale(1.1);
+      transform: scale(1.15);
+      border-color: rgba(240, 192, 208, 0.6);
     }
     
     .swiper-pagination-grande {
-      bottom: 30px !important;
+      bottom: 40px !important;
+      z-index: 10;
     }
     
     .swiper-pagination-bullet {
-      width: 12px;
-      height: 12px;
+      width: 14px;
+      height: 14px;
       background: white;
-      opacity: 0.5;
-      transition: all 0.3s ease;
+      opacity: 0.6;
+      transition: all 0.4s ease;
+      border: 2px solid transparent;
     }
     
     .swiper-pagination-bullet-active {
       background: #f0c0d0;
       opacity: 1;
-      transform: scale(1.3);
+      transform: scale(1.4);
+      border-color: rgba(255,255,255,0.5);
     }
 
-    /* Sección de información adicional */
+    /* ===== SECCIÓN INFORMATIVA ===== */
     .info-section {
       padding: 80px 20px;
       background: rgba(255, 255, 255, 0.02);
@@ -254,41 +427,49 @@ $pagina_actual = basename($_SERVER['PHP_SELF']);
       max-width: 1200px;
       margin: 0 auto;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
       gap: 40px;
     }
     
     .info-card {
       text-align: center;
-      padding: 40px 30px;
+      padding: 50px 30px;
       background: rgba(255, 255, 255, 0.05);
       border-radius: 20px;
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      transition: all 0.3s ease;
+      transition: all 0.4s ease;
     }
     
     .info-card:hover {
       transform: translateY(-10px);
       background: rgba(255, 255, 255, 0.08);
-      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+      box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+      border-color: rgba(240, 192, 208, 0.3);
     }
     
     .info-icon {
-      font-size: 3rem;
-      margin-bottom: 20px;
+      font-size: 3.5rem;
+      margin-bottom: 25px;
       color: #f0c0d0;
+      transition: transform 0.4s ease;
+    }
+    
+    .info-card:hover .info-icon {
+      transform: scale(1.1) rotate(5deg);
     }
     
     .info-card h3 {
-      font-size: 1.5rem;
+      font-size: 1.6rem;
       margin-bottom: 15px;
       color: white;
+      font-weight: 600;
     }
     
     .info-card p {
       color: rgba(255, 255, 255, 0.8);
       line-height: 1.6;
+      font-size: 1.05rem;
     }
 
     /* Footer */
@@ -296,19 +477,53 @@ $pagina_actual = basename($_SERVER['PHP_SELF']);
       background: rgba(0, 0, 0, 0.95);
       color: white;
       text-align: center;
-      padding: 40px 20px;
+      padding: 50px 20px;
       border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Mensaje cuando no hay servicios */
+    .no-services {
+      text-align: center;
+      padding: 100px 20px;
+    }
+    
+    .no-services-icon {
+      font-size: 6rem;
+      margin-bottom: 30px;
+      color: #f0c0d0;
+      animation: float 3s ease-in-out infinite;
+    }
+    
+    .no-services h2 {
+      font-size: 3rem;
+      margin-bottom: 20px;
+      color: white;
+      background: linear-gradient(135deg, #ffffff, #f0c0d0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .no-services p {
+      font-size: 1.3rem;
+      color: rgba(255, 255, 255, 0.7);
+      max-width: 600px;
+      margin: 0 auto;
+      line-height: 1.6;
     }
 
     /* Responsive */
     @media (max-width: 1024px) {
       .swiper-grande {
-        height: 70vh;
+        height: 65vh;
         min-height: 500px;
       }
       
       .slide-title {
-        font-size: 3rem;
+        font-size: 3.2rem;
+      }
+      
+      .slide-description {
+        font-size: 1.2rem;
       }
     }
     
@@ -332,50 +547,81 @@ $pagina_actual = basename($_SERVER['PHP_SELF']);
       
       .swiper-grande {
         height: 60vh;
-        min-height: 400px;
+        min-height: 450px;
       }
       
       .slide-title {
-        font-size: 2.5rem;
+        font-size: 2.8rem;
       }
       
       .slide-description {
         font-size: 1.1rem;
       }
       
+      .slide-precio {
+        font-size: 2rem;
+      }
+      
       .slide-icon {
-        font-size: 3rem;
+        font-size: 3.5rem;
+      }
+      
+      .slide-buttons {
+        flex-direction: column;
+        gap: 15px;
+      }
+      
+      .slide-button {
+        min-width: 100%;
+        padding: 12px 25px;
       }
       
       .swiper-button-next-grande,
       .swiper-button-prev-grande {
-        width: 50px;
-        height: 50px;
+        width: 55px;
+        height: 55px;
       }
       
       .swiper-button-next-grande:after,
       .swiper-button-prev-grande:after {
-        font-size: 20px;
+        font-size: 22px;
+      }
+      
+      .info-section {
+        padding: 60px 20px;
+      }
+      
+      .info-grid {
+        grid-template-columns: 1fr;
+        gap: 30px;
       }
     }
     
     @media (max-width: 480px) {
       .swiper-grande {
-        height: 50vh;
-        min-height: 300px;
+        height: 55vh;
+        min-height: 400px;
       }
       
       .slide-title {
-        font-size: 2rem;
+        font-size: 2.2rem;
       }
       
       .slide-description {
         font-size: 1rem;
       }
       
+      .slide-precio {
+        font-size: 1.8rem;
+      }
+      
       .slide-button {
-        padding: 12px 25px;
+        padding: 12px 20px;
         font-size: 1rem;
+      }
+      
+      .slide-icon {
+        font-size: 3rem;
       }
     }
   </style>
@@ -411,91 +657,84 @@ $pagina_actual = basename($_SERVER['PHP_SELF']);
     </nav>
   </header>
 
-  <!-- Carrusel Grande de Servicios -->
+  <!-- Carrusel con imágenes grandes y bien visibles -->
   <div class="swiper swiper-grande">
     <div class="swiper-wrapper">
-      
-      <!-- Slide 1: Bronceado -->
-      <div class="swiper-slide swiper-slide-grande">
-        <div class="slide-background" style="background-image: url('img/bronceado 6.jpg');"></div>
-        <div class="slide-overlay">
-          <div class="slide-content">
-            <div class="slide-icon">☀️</div>
-            <h2 class="slide-title">Bronceado Profesional</h2>
-            <p class="slide-description">
-              Tono dorado, uniforme y natural sin exposición al sol. 
-              Tratamiento profesional que cuida tu piel mientras realza tu belleza.
-            </p>
-            <a href="servicios/bronceado.php" class="slide-button">Descubrir Más</a>
+      <?php if (empty($servicios_activos)): ?>
+        <!-- Slide por defecto cuando no hay servicios -->
+        <div class="swiper-slide swiper-slide-grande">
+          <div class="slide-image-container">
+            <img src="img/bronceado 6.jpg" alt="Servicios GRETA" class="slide-image">
+          </div>
+          <div class="slide-overlay">
+            <div class="slide-content">
+              <div class="slide-icon">✨</div>
+              <h2 class="slide-title">Nuestros Servicios</h2>
+              <p class="slide-description">
+                Próximamente tendremos los mejores tratamientos de belleza para ti. 
+                Estamos preparando una experiencia única.
+              </p>
+              <div class="slide-buttons">
+                <a href="Contacto.php" class="slide-button detalles">
+                  <i class="fas fa-info-circle"></i> Más Información
+                </a>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      
-      <!-- Slide 2: Uñas Esculpidas -->
-      <div class="swiper-slide swiper-slide-grande">
-        <div class="slide-background" style="background-image: url('img/uñas 6.png');"></div>
-        <div class="slide-overlay">
-          <div class="slide-content">
-            <div class="slide-icon">💎</div>
-            <h2 class="slide-title">Uñas Esculpidas</h2>
-            <p class="slide-description">
-              Transformamos tus uñas en obras de arte. Diseños exclusivos, 
-              acabados impecables y durabilidad excepcional.
-            </p>
-            <a href="servicios/esculpidas.php" class="slide-button">Ver Servicios</a>
+      <?php else: ?>
+        <?php foreach ($servicios_activos as $index => $servicio): ?>
+          <?php
+            $precio = number_format($servicio['precio'], 0, ',', '.');
+            $duracion = isset($servicio['duracion']) ? $servicio['duracion'] : 60;
+            
+            // Obtener ícono del servicio
+            $icono = $iconos_servicios[$servicio['nombre']] ?? '✨';
+            
+            // Obtener imagen de fondo del servicio
+            $fondo = $fondos_servicios[$servicio['nombre']] ?? $fondos_default[$index % count($fondos_default)] ?? 'img/bronceado 6.jpg';
+            
+            // DETERMINAR ARCHIVO DESTINO BASADO EN GRUPOS - CORREGIDO
+            $nombre_servicio = $servicio['nombre'];
+            if (in_array($nombre_servicio, ['Semipermanente', 'Kapping'])) {
+                $archivo_destino = 'esculpidas';
+            } elseif (in_array($nombre_servicio, ['Microshading'])) {
+                $archivo_destino = 'microblading';
+            } elseif ($nombre_servicio == 'Perfilado de Cejas') {
+                $archivo_destino = 'laminado'; // CORREGIDO - va a laminado.php
+            } else {
+                $archivo_destino = strtolower(str_replace(' ', '-', $nombre_servicio));
+            }
+          ?>
+          <div class="swiper-slide swiper-slide-grande">
+            <!-- IMAGEN GRANDE Y BIEN VISIBLE -->
+            <div class="slide-image-container">
+              <img src="<?= $fondo ?>" alt="<?= htmlspecialchars($servicio['nombre']) ?>" class="slide-image">
+            </div>
+            <div class="slide-overlay">
+              <div class="slide-content">
+                <div class="slide-icon"><?= $icono ?></div>
+                <h2 class="slide-title"><?= htmlspecialchars($servicio['nombre']) ?></h2>
+                <p class="slide-description">
+                  <?= htmlspecialchars($servicio['descripcion'] ?: 'Servicio profesional de alta calidad con resultados excepcionales.') ?>
+                </p>
+                <div class="slide-precio">$<?= $precio ?></div>
+                <span class="slide-duracion">⏱️ <?= $duracion ?> minutos</span>
+                <div class="slide-buttons">
+                  <a href="servicios/<?= $archivo_destino ?>.php" 
+                     class="slide-button detalles">
+                    <i class="fas fa-info-circle"></i> Ver Detalles
+                  </a>
+                  <a href="calendario.php?servicio=<?= urlencode($servicio['nombre']) ?>" 
+                     class="slide-button reservar">
+                    <i class="fas fa-calendar-check"></i> Reservar Turno
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      
-      
-      <!-- Slide 4: Pestañas -->
-      <div class="swiper-slide swiper-slide-grande">
-        <div class="slide-background" style="background-image: url('img/Pestañas.jpg');"></div>
-        <div class="slide-overlay">
-          <div class="slide-content">
-            <div class="slide-icon">👁️</div>
-            <h2 class="slide-title">Extensiones de Pestañas</h2>
-            <p class="slide-description">
-              Mirada intensa y expresiva. Extensiones naturales, 
-              lifting y técnicas profesionales para resaltar tu belleza.
-            </p>
-            <a href="servicios/pestañas.php" class="slide-button">Explorar</a>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Slide 5: Cejas -->
-      <div class="swiper-slide swiper-slide-grande">
-        <div class="slide-background" style="background-image: url('img/laminado.jpg');"></div>
-        <div class="slide-overlay">
-          <div class="slide-content">
-            <div class="slide-icon">✏️</div>
-            <h2 class="slide-title">Belleza de Cejas</h2>
-            <p class="slide-description">
-              Laminado, microblading y diseño profesional. 
-              Cejas perfectamente definidas que enmarcan tu rostro.
-            </p>
-            <a href="servicios/laminado.php" class="slide-button">Descubrir</a>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Slide 6: Microblading -->
-      <div class="swiper-slide swiper-slide-grande">
-        <div class="slide-background" style="background-image: url('img/microblanding 2.png');"></div>
-        <div class="slide-overlay">
-          <div class="slide-content">
-            <div class="slide-icon">🎨</div>
-            <h2 class="slide-title">Microblading</h2>
-            <p class="slide-description">
-              Técnica semipermanente para cejas naturales y definidas. 
-              Resultados que transforman tu mirada por completo.
-            </p>
-            <a href="servicios/microblading.php" class="slide-button">Saber Más</a>
-          </div>
-        </div>
-      </div>
-      
+        <?php endforeach; ?>
+      <?php endif; ?>
     </div>
 
     <!-- Navegación -->
@@ -504,7 +743,7 @@ $pagina_actual = basename($_SERVER['PHP_SELF']);
     <div class="swiper-pagination swiper-pagination-grande"></div>
   </div>
 
-  <!-- Sección Informativa -->
+  <!-- SECCIÓN INFORMATIVA -->
   <section class="info-section">
     <div class="info-grid">
       <div class="info-card">
@@ -539,14 +778,14 @@ $pagina_actual = basename($_SERVER['PHP_SELF']);
     const swiper = new Swiper('.swiper-grande', {
       loop: true,
       autoplay: {
-        delay: 5000,
+        delay: 6000,
         disableOnInteraction: false,
       },
       effect: 'fade',
       fadeEffect: {
         crossFade: true
       },
-      speed: 1000,
+      speed: 1200,
       pagination: {
         el: '.swiper-pagination-grande',
         clickable: true,
@@ -554,12 +793,7 @@ $pagina_actual = basename($_SERVER['PHP_SELF']);
       navigation: {
         nextEl: '.swiper-button-next-grande',
         prevEl: '.swiper-button-prev-grande',
-      },
-      on: {
-        init: function () {
-          console.log('Carrusel de servicios inicializado');
-        },
-      },
+      }
     });
 
     // Pausar autoplay al hacer hover

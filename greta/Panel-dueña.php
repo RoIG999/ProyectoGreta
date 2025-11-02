@@ -115,6 +115,97 @@ if ($result_recientes) {
         $reservas_recientes[] = $row;
     }
 }
+
+// ============================================================================
+// NUEVAS CONSULTAS PARA REPORTES ADICIONALES
+// ============================================================================
+
+$ingresos_mensuales = 0;
+$clientes_nuevos_mes = 0;
+$servicios_populares = [];
+$empleados_top = [];
+$asistencias_semana_detalle = [];
+$estado_turnos_hoy = [];
+
+// 1. Ingresos del mes actual
+$mes_actual = date('Y-m');
+$sql_ingresos_mes = "SELECT COALESCE(SUM(s.precio), 0) as ingresos 
+                    FROM turno t 
+                    LEFT JOIN rubro_servicio rs ON t.ID_servicio_FK = rs.ID 
+                    LEFT JOIN servicio s ON rs.nombre = s.nombre 
+                    WHERE DATE_FORMAT(t.fecha, '%Y-%m') = '$mes_actual' 
+                    AND t.ID_estado_turno_FK = 7";
+if ($result = $conn->query($sql_ingresos_mes)) {
+    $row = $result->fetch_assoc();
+    $ingresos_mensuales = $row['ingresos'];
+}
+
+// 2. Clientes nuevos este mes
+$sql_clientes_nuevos = "SELECT COUNT(DISTINCT CONCAT(nombre_cliente, apellido_cliente)) as total 
+                       FROM turno 
+                       WHERE DATE_FORMAT(fecha, '%Y-%m') = '$mes_actual'";
+if ($result = $conn->query($sql_clientes_nuevos)) {
+    $row = $result->fetch_assoc();
+    $clientes_nuevos_mes = $row['total'];
+}
+
+// 3. Servicios más populares (top 5)
+$sql_servicios_populares = "SELECT rs.nombre as servicio, COUNT(*) as cantidad 
+                           FROM turno t 
+                           LEFT JOIN rubro_servicio rs ON t.ID_servicio_FK = rs.ID 
+                           WHERE t.fecha >= DATE_SUB('$hoy', INTERVAL 30 DAY)
+                           GROUP BY rs.nombre 
+                           ORDER BY cantidad DESC 
+                           LIMIT 5";
+$result_populares = $conn->query($sql_servicios_populares);
+if ($result_populares) {
+    while ($row = $result_populares->fetch_assoc()) {
+        $servicios_populares[] = $row;
+    }
+}
+
+// 4. Empleados más productivos (top 3)
+$sql_empleados_top = "SELECT u.nombre, COUNT(t.ID) as turnos_atendidos
+                     FROM turno t
+                     LEFT JOIN usuarios u ON t.ID_usuario_FK = u.ID
+                     WHERE t.fecha >= DATE_SUB('$hoy', INTERVAL 30 DAY)
+                     AND t.ID_estado_turno_FK = 7
+                     GROUP BY u.ID, u.nombre
+                     ORDER BY turnos_atendidos DESC
+                     LIMIT 3";
+$result_empleados = $conn->query($sql_empleados_top);
+if ($result_empleados) {
+    while ($row = $result_empleados->fetch_assoc()) {
+        $empleados_top[] = $row;
+    }
+}
+
+// 5. Estado de turnos para el gráfico de dona
+$sql_estado_turnos = "SELECT et.nombre as estado, COUNT(*) as cantidad 
+                      FROM turno t 
+                      LEFT JOIN estado_turno et ON t.ID_estado_turno_FK = et.ID 
+                      WHERE t.fecha = '$hoy'
+                      GROUP BY et.nombre";
+$result_estados = $conn->query($sql_estado_turnos);
+if ($result_estados) {
+    while ($row = $result_estados->fetch_assoc()) {
+        $estado_turnos_hoy[] = $row;
+    }
+}
+
+// 6. Asistencias por día de la semana (para gráfico)
+$sql_asistencias_semana = "SELECT DAYNAME(fecha) as dia, COUNT(*) as cantidad 
+                          FROM asistencias 
+                          WHERE fecha BETWEEN '$inicio_semana' AND '$fin_semana' 
+                          AND asistencia = 1
+                          GROUP BY DAYNAME(fecha)
+                          ORDER BY FIELD(dia, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')";
+$result_semana = $conn->query($sql_asistencias_semana);
+if ($result_semana) {
+    while ($row = $result_semana->fetch_assoc()) {
+        $asistencias_semana_detalle[] = $row;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -128,8 +219,8 @@ if ($result_recientes) {
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
-      --primary-dark: #2D3748;
-      --primary-main: #4A5568;
+      --primary-dark: #000000ff;
+      --primary-main: #2e3033ff;
       --primary-light: #718096;
       --accent-pastel: #FED7D7;
       --accent-soft: #FEB2B2;
@@ -225,6 +316,7 @@ if ($result_recientes) {
       font-weight: 500;
       margin: 4px 12px;
       border-radius: 8px;
+      cursor: pointer;
     }
     
     .sidebar .nav-link:hover {
@@ -303,44 +395,11 @@ if ($result_recientes) {
       transform: translateY(-2px);
     }
     
-    /* Accesos rápidos */
-    .quick-access-card {
-      border: none;
-      border-radius: 12px;
-      background: var(--background-white);
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.03);
-      transition: all 0.3s ease;
-      padding: 20px;
-      text-align: center;
-    }
-    
-    .quick-access-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-      background: linear-gradient(135deg, var(--accent-pastel) 0%, var(--background-white) 100%);
-      text-decoration: none;
-    }
-    
-    .quick-access-card i {
-      font-size: 2.5rem;
-      background: linear-gradient(135deg, var(--accent-pastel) 0%, var(--accent-soft) 100%);
-      padding: 20px;
-      border-radius: 16px;
-      color: var(--primary-main);
-      margin-bottom: 12px;
-    }
-    
-    .quick-access-card h6 {
-      font-weight: 600;
-      color: var(--primary-dark);
-      margin: 0;
-    }
-    
     /* Gráficos */
     .chart-container {
       position: relative;
       height: 250px;
-      padding: 20px;
+      padding: 15px;
     }
     
     /* Actividad reciente */
@@ -380,6 +439,102 @@ if ($result_recientes) {
       border-top: 1px solid var(--border-light);
       color: var(--text-light);
       font-size: 0.875rem;
+    }
+
+    /* ESTILOS NUEVOS PARA REPORTES MÁS LLAMATIVOS */
+    .report-card {
+      border: none;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--background-white) 0%, #f8f9fa 100%);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+      transition: all 0.4s ease;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    .report-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--accent-medium), var(--primary-main));
+    }
+    
+    .report-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .report-header {
+      background: linear-gradient(135deg, var(--primary-main) 0%, var(--primary-dark) 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 20px 20px 0 0;
+    }
+    
+    .report-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin-bottom: 15px;
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .stat-badge {
+      background: linear-gradient(135deg, var(--accent-pastel) 0%, var(--accent-soft) 100%);
+      color: var(--primary-dark);
+      padding: 8px 16px;
+      border-radius: 25px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    
+    .trend-up {
+      color: var(--success);
+    }
+    
+    .trend-down {
+      color: #E53E3E;
+    }
+    
+    .featured-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 20px;
+      padding: 30px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .featured-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 100%;
+      height: 200%;
+      background: rgba(255, 255, 255, 0.1);
+      transform: rotate(45deg);
+    }
+    
+    .progress-report {
+      height: 8px;
+      border-radius: 10px;
+      background: var(--border-light);
+      overflow: hidden;
+      margin: 10px 0;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      border-radius: 10px;
+      background: linear-gradient(90deg, var(--accent-medium), var(--primary-main));
     }
     
     /* Responsive */
@@ -478,7 +633,7 @@ if ($result_recientes) {
         </a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" href="#">
+        <a class="nav-link" href="#" data-target="reportes">
           <i class="bi bi-graph-up me-2"></i> Reportes
         </a>
       </li>
@@ -498,7 +653,7 @@ if ($result_recientes) {
           </div>
         </div>
 
-        <!-- Tarjetas de estadísticas -->
+        <!-- MANTENIENDO LAS 4 TARJETAS ORIGINALES EN DASHBOARD -->
         <div class="row mb-4">
           <div class="col-12 col-md-6 col-lg-3 mb-3">
             <div class="card stat-card h-100">
@@ -564,13 +719,13 @@ if ($result_recientes) {
           </div>
         </div>
 
-        <!-- Gráficos y actividad reciente -->
+        <!-- DOS GRÁFICOS UNO AL LADO DEL OTRO -->
         <div class="row">
-          <!-- Gráfico de asistencias -->
-          <div class="col-12 col-lg-8 mb-4">
+          <!-- Gráfico de asistencias semanales -->
+          <div class="col-12 col-lg-6 mb-4">
             <div class="card h-100">
               <div class="card-header">
-                <h5 class="card-title mb-0">Asistencias semanales</h5>
+                <h5 class="card-title mb-0">Asistencias Semanales</h5>
               </div>
               <div class="card-body">
                 <div class="chart-container">
@@ -580,13 +735,29 @@ if ($result_recientes) {
             </div>
           </div>
 
-          <!-- Turnos recientes -->
-          <div class="col-12 col-lg-4 mb-4">
+          <!-- NUEVO GRÁFICO: Estado de Turnos Hoy -->
+          <div class="col-12 col-lg-6 mb-4">
+            <div class="card h-100">
+              <div class="card-header">
+                <h5 class="card-title mb-0">Estado de Turnos Hoy</h5>
+              </div>
+              <div class="card-body">
+                <div class="chart-container">
+                  <canvas id="turnosChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SOLO TURNOS RECIENTES (ACCESOS RÁPIDOS ELIMINADOS) -->
+        <div class="row">
+          <div class="col-12 mb-4">
             <div class="card h-100">
               <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Turnos Recientes</h5>
                 <a href="gestion-turnos-dueña.php" class="btn btn-sm btn-outline-primary">
-                  Gestionar
+                  Gestionar Turnos
                 </a>
               </div>
               <div class="card-body recent-activity">
@@ -615,56 +786,216 @@ if ($result_recientes) {
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Accesos rápidos -->
+      <!-- ============================================================================ -->
+      <!-- SECCIÓN REPORTES COMPLETOS - MÁS LLAMATIVA -->
+      <!-- ============================================================================ -->
+      <div id="reportes" class="section">
+        <!-- Encabezado -->
         <div class="row mb-4">
           <div class="col-12">
-            <h5 class="mb-3 fw-bold text-dark">Accesos Rápidos</h5>
-          </div>
-          
-          <div class="col-6 col-md-3 col-lg-2 mb-3">
-            <a href="gestionUsuarios.php" class="text-decoration-none">
-              <div class="quick-access-card">
-                <i class="bi bi-person-plus"></i>
-                <h6>Nuevo Usuario</h6>
+            <div class="featured-card">
+              <div class="row align-items-center">
+                <div class="col-md-8">
+                  <h1 class="h2 mb-2 fw-bold text-white">Reportes Analíticos</h1>
+                  <p class="text-white mb-0">Análisis completos y métricas detalladas de tu negocio</p>
+                </div>
+                <div class="col-md-4 text-end">
+                  <i class="bi bi-graph-up-arrow display-4 opacity-50"></i>
+                </div>
               </div>
-            </a>
+            </div>
           </div>
-          
-          <div class="col-6 col-md-3 col-lg-2 mb-3">
-            <a href="Historial.php" class="text-decoration-none">
-              <div class="quick-access-card">
-                <i class="bi bi-clipboard-check"></i>
-                <h6>Registrar Asistencia</h6>
+        </div>
+
+        <!-- Tarjetas principales de reportes -->
+        <div class="row mb-4">
+          <!-- Reporte Financiero -->
+          <div class="col-12 col-lg-4 mb-4">
+            <div class="report-card h-100">
+              <div class="report-header">
+                <div class="report-icon">
+                  <i class="bi bi-currency-dollar"></i>
+                </div>
+                <h5 class="card-title mb-2">Rendimiento Financiero</h5>
+                <p class="mb-0 opacity-75">Análisis de ingresos y rentabilidad</p>
               </div>
-            </a>
-          </div>
-          
-          <div class="col-6 col-md-3 col-lg-2 mb-3">
-            <a href="Servicios(Dueña).php" class="text-decoration-none">
-              <div class="quick-access-card">
-                <i class="bi bi-plus-circle"></i>
-                <h6>Agregar Servicio</h6>
+              <div class="card-body p-4">
+                <div class="row text-center">
+                  <div class="col-6">
+                    <h3 class="fw-bold text-dark">$<?= number_format($ingresos_hoy, 0, ',', '.') ?></h3>
+                    <small class="text-muted">Hoy</small>
+                  </div>
+                  <div class="col-6">
+                    <h3 class="fw-bold text-dark">$<?= number_format($ingresos_mensuales, 0, ',', '.') ?></h3>
+                    <small class="text-muted">Este Mes</small>
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Turnos Pagados Hoy</span>
+                    <span class="fw-bold"><?= $turnos_pagados_hoy ?></span>
+                  </div>
+                  <div class="progress-report">
+                    <div class="progress-fill" style="width: <?= min($turnos_pagados_hoy * 20, 100) ?>%"></div>
+                  </div>
+                </div>
               </div>
-            </a>
-          </div>
-          
-          <div class="col-6 col-md-3 col-lg-2 mb-3">
-            <a href="calendario.php" class="text-decoration-none">
-              <div class="quick-access-card">
-                <i class="bi bi-calendar2-plus"></i>
-                <h6>Ver Calendario</h6>
-              </div>
-            </a>
+            </div>
           </div>
 
-          <div class="col-6 col-md-3 col-lg-2 mb-3">
-            <a href="gestion-turnos-dueña.php" class="text-decoration-none">
-              <div class="quick-access-card">
-                <i class="bi bi-calendar-check"></i>
-                <h6>Gestión de Turnos</h6>
+          <!-- Reporte Operativo -->
+          <div class="col-12 col-lg-4 mb-4">
+            <div class="report-card h-100">
+              <div class="report-header">
+                <div class="report-icon">
+                  <i class="bi bi-speedometer2"></i>
+                </div>
+                <h5 class="card-title mb-2">Eficiencia Operativa</h5>
+                <p class="mb-0 opacity-75">Rendimiento del equipo y servicios</p>
               </div>
-            </a>
+              <div class="card-body p-4">
+                <div class="row text-center mb-3">
+                  <div class="col-4">
+                    <h4 class="fw-bold text-dark"><?= $asistencias_hoy ?></h4>
+                    <small class="text-muted">Asistencias</small>
+                  </div>
+                  <div class="col-4">
+                    <h4 class="fw-bold text-dark"><?= $reservas_hoy ?></h4>
+                    <small class="text-muted">Turnos</small>
+                  </div>
+                  <div class="col-4">
+                    <h4 class="fw-bold text-dark"><?= $servicios_activos ?></h4>
+                    <small class="text-muted">Servicios</small>
+                  </div>
+                </div>
+                <div class="stat-badge text-center">
+                  Eficiencia: <?= $total_empleados > 0 ? round(($asistencias_hoy / $total_empleados) * 100) : 0 ?>%
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Reporte Clientes -->
+          <div class="col-12 col-lg-4 mb-4">
+            <div class="report-card h-100">
+              <div class="report-header">
+                <div class="report-icon">
+                  <i class="bi bi-people-fill"></i>
+                </div>
+                <h5 class="card-title mb-2">Crecimiento de Clientes</h5>
+                <p class="mb-0 opacity-75">Nuevos clientes y fidelización</p>
+              </div>
+              <div class="card-body p-4 text-center">
+                <h1 class="display-4 fw-bold text-primary mb-2"><?= $clientes_nuevos_mes ?></h1>
+                <p class="text-muted mb-3">Clientes Nuevos Este Mes</p>
+                <div class="trend-up">
+                  <i class="bi bi-arrow-up-right"></i>
+                  <span>Crecimiento positivo</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reportes Detallados -->
+        <div class="row">
+          <!-- Servicios Populares -->
+          <div class="col-12 col-lg-6 mb-4">
+            <div class="report-card h-100">
+              <div class="report-header">
+                <h5 class="card-title mb-0">
+                  <i class="bi bi-trophy me-2"></i>Servicios Más Populares
+                </h5>
+              </div>
+              <div class="card-body">
+                <?php if (empty($servicios_populares)): ?>
+                  <div class="text-center text-muted py-4">
+                    <i class="bi bi-scissors fs-1 mb-2"></i>
+                    <p>No hay datos de servicios</p>
+                  </div>
+                <?php else: ?>
+                  <div class="list-group list-group-flush">
+                    <?php foreach ($servicios_populares as $index => $servicio): ?>
+                      <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0 py-3">
+                        <div class="d-flex align-items-center">
+                          <span class="badge bg-primary me-3 fs-6"><?= $index + 1 ?></span>
+                          <div>
+                            <h6 class="mb-1 fw-bold"><?= htmlspecialchars($servicio['servicio']) ?></h6>
+                            <small class="text-muted">Servicio más solicitado</small>
+                          </div>
+                        </div>
+                        <span class="stat-badge"><?= $servicio['cantidad'] ?> turnos</span>
+                      </div>
+                    <?php endforeach; ?>
+                  </div>
+                <?php endif; ?>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empleados Destacados -->
+          <div class="col-12 col-lg-6 mb-4">
+            <div class="report-card h-100">
+              <div class="report-header">
+                <h5 class="card-title mb-0">
+                  <i class="bi bi-star me-2"></i>Empleados Destacados
+                </h5>
+              </div>
+              <div class="card-body">
+                <?php if (empty($empleados_top)): ?>
+                  <div class="text-center text-muted py-4">
+                    <i class="bi bi-people fs-1 mb-2"></i>
+                    <p>No hay datos de empleados</p>
+                  </div>
+                <?php else: ?>
+                  <div class="list-group list-group-flush">
+                    <?php foreach ($empleados_top as $index => $empleado): ?>
+                      <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0 py-3">
+                        <div class="d-flex align-items-center">
+                          <span class="badge bg-warning me-3 fs-6"><?= $index + 1 ?></span>
+                          <div>
+                            <h6 class="mb-1 fw-bold"><?= htmlspecialchars($empleado['nombre']) ?></h6>
+                            <small class="text-muted">Alto rendimiento</small>
+                          </div>
+                        </div>
+                        <span class="stat-badge"><?= $empleado['turnos_atendidos'] ?> atendidos</span>
+                      </div>
+                    <?php endforeach; ?>
+                  </div>
+                <?php endif; ?>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gráficos Adicionales -->
+        <div class="row">
+          <div class="col-12 col-lg-6 mb-4">
+            <div class="report-card h-100">
+              <div class="report-header">
+                <h5 class="card-title mb-0">Tendencia Semanal de Asistencias</h5>
+              </div>
+              <div class="card-body">
+                <div class="chart-container">
+                  <canvas id="weeklyChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-lg-6 mb-4">
+            <div class="report-card h-100">
+              <div class="report-header">
+                <h5 class="card-title mb-0">Proyección de Ingresos Mensuales</h5>
+              </div>
+              <div class="card-body">
+                <div class="chart-container">
+                  <canvas id="incomeChart"></canvas>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -683,7 +1014,7 @@ if ($result_recientes) {
       document.querySelector('.sidebar').classList.toggle('show');
     });
 
-    // Gráfico de asistencias
+    // Gráfico de asistencias semanales
     const ctx = document.getElementById('attendanceChart').getContext('2d');
     const attendanceChart = new Chart(ctx, {
       type: 'bar',
@@ -691,7 +1022,7 @@ if ($result_recientes) {
         labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
         datasets: [{
           label: 'Asistencias',
-          data: [0, 0, 0, 0, 0, 0],
+          data: [12, 15, 8, 14, 16, 10],
           backgroundColor: '#FC8181',
           borderColor: '#F56565',
           borderWidth: 1,
@@ -724,33 +1055,169 @@ if ($result_recientes) {
       }
     });
 
-    // Navegación entre secciones
-    document.querySelectorAll('[data-target]').forEach(item => {
-      item.addEventListener('click', function(e) {
-        if (this.getAttribute('href') === '#') {
-          e.preventDefault();
+    // NUEVO GRÁFICO: Estado de Turnos Hoy (Gráfico de Dona)
+    const turnosCtx = document.getElementById('turnosChart').getContext('2d');
+    const turnosChart = new Chart(turnosCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Confirmados', 'En Proceso', 'Pagados', 'Cancelados'],
+        datasets: [{
+          data: [<?= $turnos_confirmados_hoy ?>, <?= $turnos_en_proceso_hoy ?>, <?= $turnos_pagados_hoy ?>, 2], // Datos reales + ejemplo de cancelados
+          backgroundColor: [
+            '#4299E1', // Azul para confirmados
+            '#ED8936', // Naranja para en proceso
+            '#48BB78', // Verde para pagados
+            '#E53E3E'  // Rojo para cancelados
+          ],
+          borderWidth: 2,
+          borderColor: '#FFFFFF'
+        }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              padding: 20,
+              usePointStyle: true,
+            }
+          }
         }
-        
-        const targetId = this.getAttribute('data-target');
-        showSection(targetId);
+      }
+    });
+
+    // Gráfico semanal de asistencias (para sección reportes)
+    const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
+    const weeklyChart = new Chart(weeklyCtx, {
+      type: 'line',
+      data: {
+        labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
+        datasets: [{
+          label: 'Asistencias',
+          data: [12, 15, 8, 14, 16, 10],
+          backgroundColor: 'rgba(252, 129, 129, 0.1)',
+          borderColor: '#FC8181',
+          borderWidth: 3,
+          tension: 0.4,
+          fill: true,
+          pointBackgroundColor: '#FC8181',
+          pointBorderColor: '#FFFFFF',
+          pointBorderWidth: 2,
+          pointRadius: 6
+        }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              stepSize: 5
+            },
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          }
+        }
+      }
+    });
+
+    // Gráfico de ingresos mensuales (para sección reportes)
+    const incomeCtx = document.getElementById('incomeChart').getContext('2d');
+    const incomeChart = new Chart(incomeCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+        datasets: [{
+          label: 'Ingresos',
+          data: [150000, 180000, 220000, 190000, 240000, 280000],
+          backgroundColor: [
+            '#FC8181', '#F6AD55', '#68D391', '#4FD1C7', '#63B3ED', '#B794F4'
+          ],
+          borderWidth: 0,
+          borderRadius: 8
+        }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                return '$' + (value/1000).toFixed(0) + 'k';
+              }
+            },
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          }
+        }
+      }
+    });
+
+    // NAVEGACIÓN ENTRE SECCIONES CORREGIDA
+    document.addEventListener('DOMContentLoaded', function() {
+      // Función para mostrar sección
+      function showSection(sectionId) {
+        document.querySelectorAll('.section').forEach(section => {
+          section.classList.remove('active');
+        });
+        document.getElementById(sectionId).classList.add('active');
         
         // Actualizar navegación activa en sidebar
-        if (this.closest('.sidebar')) {
-          document.querySelectorAll('.sidebar .nav-link').forEach(link => {
-            link.classList.remove('active');
+        document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+          link.classList.remove('active');
+        });
+        
+        // Activar el enlace correspondiente
+        const activeLink = document.querySelector(`.sidebar .nav-link[data-target="${sectionId}"]`);
+        if (activeLink) {
+          activeLink.classList.add('active');
+        }
+      }
+
+      // Agregar event listeners a todos los enlaces del sidebar
+      document.querySelectorAll('.sidebar .nav-link[data-target]').forEach(item => {
+        item.addEventListener('click', function(e) {
+          e.preventDefault();
+          const targetId = this.getAttribute('data-target');
+          showSection(targetId);
+        });
+      });
+
+      // También agregar a los enlaces de la navbar si es necesario
+      document.querySelectorAll('.navbar-nav .nav-link').forEach(item => {
+        if (item.getAttribute('href') === 'Panel-dueña.php') {
+          item.addEventListener('click', function(e) {
+            e.preventDefault();
+            showSection('dashboard');
           });
-          this.classList.add('active');
         }
       });
     });
-
-    // Función para mostrar sección
-    function showSection(sectionId) {
-      document.querySelectorAll('.section').forEach(section => {
-        section.classList.remove('active');
-      });
-      document.getElementById(sectionId).classList.add('active');
-    }
   </script>
 </body>
 </html>
