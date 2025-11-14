@@ -1,153 +1,633 @@
 <?php
 include("conexion.php");
 
-// Obtener datos del usuario logueado
+// Verificar que el usuario esté logueado
 session_start();
-$usuario_id = $_SESSION['usuario_id'] ?? 0;
-$nombre_usuario = "ROOT";
-
-if ($usuario_id > 0) {
-    $sql_user = "SELECT nombre FROM usuarios WHERE id = ?";
-    if ($stmt = $conn->prepare($sql_user)) {
-        $stmt->bind_param('i', $usuario_id);
-        $stmt->execute();
-        $res = $stmt->get_result();
-        if ($res && $res->num_rows > 0) {
-            $user_data = $res->fetch_assoc();
-            $nombre_usuario = htmlspecialchars($user_data['nombre'] ?? 'ROOT', ENT_QUOTES, 'UTF-8');
-        }
-        $stmt->close();
-    }
+if (!isset($_SESSION['usuario_id'])) {
+  header('Location: login.php'); 
+  exit;
 }
+
+// Normalizar rol: minúsculas y sin tildes
+$rol = $_SESSION['usuario_rol'] ?? '';
+$rol_normalizado = mb_strtolower($rol, 'UTF-8');
+$rol_normalizado = strtr($rol_normalizado, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','ñ'=>'n']);
+
+// Solo dueña, admin o supervisor (en minúsculas)
+if (!in_array($rol_normalizado, ['duena', 'dueña', 'supervisor', 'admin'])) {
+  header('Location: login.php?e=perm'); 
+  exit;
+}
+
+$nombre_usuario = htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Usuario', ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Registrar Usuario</title>
+  <title>Registrar Usuario - GRETA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    .navbar-nav .nav-link { color: white !important; }
+    :root {
+      --primary-dark: #000000ff;
+      --primary-main: #2e3033ff;
+      --primary-light: #718096;
+      --accent-pastel: #FED7D7;
+      --accent-soft: #FEB2B2;
+      --accent-medium: #FC8181;
+      --background-light: #FAF5F0;
+      --background-white: #FFFFFF;
+      --text-dark: #2D3748;
+      --text-medium: #4A5568;
+      --text-light: #718096;
+      --border-light: #E2E8F0;
+      --success: #48BB78;
+      --warning: #ED8936;
+      --info: #4299E1;
+    }
+    
+    body { 
+      background: var(--background-light);
+      color: var(--text-dark);
+      font-family: 'Montserrat', sans-serif;
+      line-height: 1.6;
+    }
+    
+    .navbar-brand {
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    
+    .bg-greta { 
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-main) 100%);
+    }
+    
+    /* Tarjetas de estadísticas */
+    .stat-card {
+      border: none;
+      border-radius: 16px;
+      background: var(--background-white);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.03);
+      transition: all 0.3s ease;
+      border-left: 4px solid var(--accent-medium);
+    }
+    
+    .stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stat-card i {
+      font-size: 2rem;
+      background: linear-gradient(135deg, var(--accent-pastel) 0%, var(--accent-soft) 100%);
+      padding: 15px;
+      border-radius: 12px;
+      color: var(--primary-main);
+    }
+    
+    .stat-card .card-title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 0.25rem;
+    }
+    
+    .stat-card .card-subtitle {
+      font-size: 0.875rem;
+      color: var(--text-light);
+      font-weight: 500;
+    }
+    
+    .stat-card .small {
+      font-size: 0.75rem;
+      color: var(--primary-light);
+    }
+    
+    /* Sidebar */
+    .sidebar {
+      background: var(--background-white);
+      border-right: 1px solid var(--border-light);
+      height: 100vh;
+      position: fixed;
+      top: 56px;
+      left: 0;
+      width: 280px;
+      padding: 20px 0;
+      z-index: 1000;
+      overflow-y: auto;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+    }
+    
+    .sidebar .nav-link {
+      color: var(--text-medium);
+      padding: 14px 24px;
+      border-left: 4px solid transparent;
+      transition: all 0.3s ease;
+      font-weight: 500;
+      margin: 4px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    
+    .sidebar .nav-link:hover {
+      background-color: var(--accent-pastel);
+      color: var(--primary-main);
+      border-left: 4px solid var(--accent-medium);
+    }
+    
+    .sidebar .nav-link.active {
+      background-color: var(--accent-pastel);
+      color: var(--primary-dark);
+      font-weight: 600;
+      border-left: 4px solid var(--accent-medium);
+    }
+    
+    .sidebar .nav-link i {
+      width: 20px;
+      margin-right: 12px;
+    }
+    
+    .main-content {
+      margin-left: 280px;
+      padding: 30px;
+      width: calc(100% - 280px);
+      min-height: calc(100vh - 76px);
+    }
+    
+    /* Tarjetas de contenido */
+    .card {
+      border: none;
+      border-radius: 16px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.03);
+      background: var(--background-white);
+    }
+    
+    .card-header {
+      background: var(--background-white);
+      border-bottom: 1px solid var(--border-light);
+      padding: 20px 24px;
+      border-radius: 16px 16px 0 0 !important;
+    }
+    
+    .card-header h5 {
+      font-weight: 600;
+      color: var(--primary-dark);
+      margin: 0;
+    }
+    
+    /* Botones */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary-main) 0%, var(--primary-dark) 100%);
+      border: none;
+      border-radius: 10px;
+      font-weight: 500;
+      padding: 10px 20px;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(74, 85, 104, 0.3);
+    }
+    
+    .btn-outline-primary {
+      border: 2px solid var(--primary-main);
+      color: var(--primary-main);
+      border-radius: 10px;
+      font-weight: 500;
+      padding: 8px 18px;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-outline-primary:hover {
+      background: var(--primary-main);
+      border-color: var(--primary-main);
+      transform: translateY(-2px);
+    }
+    
+    .btn-success {
+      background: linear-gradient(135deg, var(--success) 0%, #38a169 100%);
+      border: none;
+      border-radius: 10px;
+      font-weight: 500;
+      padding: 10px 20px;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-success:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+    }
+    
+    /* Formularios */
+    .form-container {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    
+    .form-control, .form-select {
+      border-radius: 10px;
+      border: 2px solid var(--border-light);
+      padding: 12px 15px;
+      transition: all 0.3s ease;
+      font-size: 0.95rem;
+    }
+    
+    .form-control:focus, .form-select:focus {
+      border-color: var(--accent-medium);
+      box-shadow: 0 0 0 3px rgba(252, 129, 129, 0.1);
+    }
+    
+    .form-label {
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 8px;
+    }
+    
+    .form-text {
+      color: var(--text-light);
+      font-size: 0.85rem;
+    }
+    
+    .input-group .btn {
+      border-radius: 0 10px 10px 0;
+      border: 2px solid var(--border-light);
+      border-left: none;
+    }
+    
+    .input-group .form-control {
+      border-radius: 10px 0 0 10px;
+    }
+    
+    /* Checkbox personalizado */
+    .form-check-input {
+      border-radius: 6px;
+      border: 2px solid var(--border-light);
+      width: 1.2em;
+      height: 1.2em;
+      margin-top: 0.2em;
+    }
+    
+    .form-check-input:checked {
+      background-color: var(--accent-medium);
+      border-color: var(--accent-medium);
+    }
+    
+    .form-check-input:focus {
+      box-shadow: 0 0 0 3px rgba(252, 129, 129, 0.1);
+    }
+    
+    .form-check-label {
+      font-weight: 500;
+      color: var(--text-dark);
+    }
+    
+    /* Alertas */
+    .alert {
+      border-radius: 12px;
+      border: none;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      padding: 16px 20px;
+    }
+    
+    .alert-success {
+      background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%);
+      color: var(--success);
+      border-left: 4px solid var(--success);
+    }
+    
+    .alert-danger {
+      background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+      color: #e53e3e;
+      border-left: 4px solid #e53e3e;
+    }
+    
+    /* Footer */
+    footer {
+      background: var(--background-white);
+      border-top: 1px solid var(--border-light);
+      color: var(--text-light);
+      font-size: 0.875rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 992px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        width: 280px;
+      }
+      
+      .sidebar.show {
+        transform: translateX(0);
+      }
+      
+      .main-content {
+        margin-left: 0;
+        width: 100%;
+        padding: 20px;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .main-content {
+        padding: 15px;
+      }
+      
+      .stat-card .card-title {
+        font-size: 1.75rem;
+      }
+      
+      .form-container {
+        max-width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
-
-<nav class="navbar navbar-expand-lg" style="background-color: black;">
-  <div class="container-fluid align-items-center">
-    <img src="img/LogoGreta.jpeg" alt="LogoGreta" style="width:80px;height:80px;">
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarContent">
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item"><a class="nav-link" href="index.php">Asistencia</a></li>
-        <li class="nav-item"><a class="nav-link active" href="gestionUsuarios.php">Usuarios</a></li>
-      </ul>
-      <ul class="navbar-nav d-flex flex-row gap-3">
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" title="Usuario actual">
-            <i class="bi bi-person-circle fs-5"></i> <?= $nombre_usuario ?>
+  <!-- Nav -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-greta fixed-top">
+    <div class="container-fluid">
+      <button class="btn btn-sm btn-outline-light me-2 d-lg-none" type="button" id="sidebarToggle">
+        <i class="bi bi-list"></i>
+      </button>
+      <a class="navbar-brand" href="Panel-dueña.php">
+        <img src="img/LogoGreta.jpeg" alt="GRETA" style="height: 50px; width: auto; margin-right: 12px;">
+        GRETA · Registrar Usuario
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navBar">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div id="navBar" class="collapse navbar-collapse">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="Panel-dueña.php">
+              <i class="bi bi-house me-2"></i>Inicio
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="gestionUsuarios.php">
+              <i class="bi bi-people me-2"></i>Usuarios
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="Historial.php">
+              <i class="bi bi-calendar-check me-2"></i>Asistencias
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="Servicios(Dueña).php">
+              <i class="bi bi-scissors me-2"></i>Servicios
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="gestion-turnos-dueña.php">
+              <i class="bi bi-calendar-check me-2"></i>Turnos
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="Panel-dueña.php?seccion=reportes">
+              <i class="bi bi-graph-up me-2"></i>Reportes
+            </a>
+          </li>
+        </ul>
+        <div class="d-flex align-items-center">
+          <span class="navbar-text text-white me-3">Hola, <?= $nombre_usuario; ?></span>
+          <a class="btn btn-outline-light btn-sm" href="logout.php">
+            <i class="bi bi-box-arrow-right"></i> Cerrar sesión
           </a>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item text-danger" href="logout.php"><i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión</a></li>
-          </ul>
-        </li>
-      </ul>
-    </div>
-  </div>
-</nav>
-
-
-<div class="container mt-5" style="max-width: 720px;">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>Registrar Nuevo Usuario</h2>
-    <a href="gestionUsuarios.php" class="btn btn-secondary">⬅️ Volver</a>
-  </div>
-
-  <!-- Feedback por querystring -->
-  <?php
-    $ok    = $_GET['ok']    ?? null;   // ej: ok=creado
-    $error = $_GET['error'] ?? null;   // ej: error=usuario_duplicado | faltan_campos | insert
-    if ($ok === 'creado') {
-      echo '<div class="alert alert-success">✅ Usuario registrado correctamente.</div>';
-    } elseif ($error) {
-      $msg = 'Ocurrió un error.';
-      if ($error === 'usuario_duplicado') $msg = 'El nombre de usuario ya existe. Elegí otro.';
-      if ($error === 'faltan_campos')    $msg = 'Completá todos los campos obligatorios.';
-      if ($error === 'rol_invalido')     $msg = 'Rol inválido.';
-      if ($error === 'insert')           $msg = 'No se pudo registrar el usuario.';
-      echo '<div class="alert alert-danger">❌ ' . htmlspecialchars($msg, ENT_QUOTES, 'UTF-8') . '</div>';
-    }
-  ?>
-
-  <form action="GuardarUsuario.php" method="POST" onsubmit="return validar();">
-    <div class="mb-3">
-      <label for="nombre" class="form-label">Nombre completo</label>
-      <input type="text" class="form-control" id="nombre" name="nombre" required>
-    </div>
-
-    <div class="mb-3">
-      <label for="usuario" class="form-label">Usuario</label>
-      <input type="text" class="form-control" id="usuario" name="usuario" required>
-      <div class="form-text">Debe ser único. Se verificará antes de crear.</div>
-    </div>
-
-    <div class="mb-3">
-      <label for="clave" class="form-label">Contraseña</label>
-      <div class="input-group">
-        <input type="password" class="form-control" id="clave" name="clave" required minlength="6">
-        <button type="button" class="btn btn-outline-secondary" onclick="togglePass()">
-          <i class="bi bi-eye"></i>
-        </button>
+        </div>
       </div>
-      <div class="form-text">Mínimo 6 caracteres.</div>
     </div>
+  </nav>
 
-    <div class="mb-3">
-  <label for="rol" class="form-label">Rol</label>
-  <select class="form-select" id="rol" name="rol" required>
-    <option value="" selected disabled>Seleccioná un rol</option>
-    <option value="admin">Administrador</option>
-    <option value="Supervisor">Supervisor</option>
-    <option value="empleado">Empleado</option>
-  </select>
-</div>
+  <!-- Sidebar -->
+  <div class="sidebar d-none d-lg-block">
+    <ul class="nav flex-column">
+      <li class="nav-item">
+        <a class="nav-link" href="Panel-dueña.php">
+          <i class="bi bi-speedometer2 me-2"></i> Dashboard
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="gestionUsuarios.php">
+          <i class="bi bi-people me-2"></i> Usuarios
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="Historial.php">
+          <i class="bi bi-calendar-check me-2"></i> Asistencias
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="Servicios(Dueña).php">
+          <i class="bi bi-scissors me-2"></i> Servicios
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="gestion-turnos-dueña.php">
+          <i class="bi bi-calendar-check me-2"></i> Gestión de Turnos
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="calendario.php">
+          <i class="bi bi-calendar-week me-2"></i> Calendario
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="Panel-dueña.php?seccion=reportes">
+          <i class="bi bi-graph-up me-2"></i> Reportes
+        </a>
+      </li>
+    </ul>
+  </div>
 
-    <div class="form-check mb-3">
-      <input class="form-check-input" type="checkbox" id="estado" name="estado" checked>
-      <label class="form-check-label" for="estado">Activo</label>
+  <!-- Contenido principal -->
+  <div class="main-content" style="margin-top: 76px;">
+    <div class="container-fluid">
+      <div class="form-container">
+        <!-- Encabezado -->
+        <div class="row mb-4">
+          <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <h1 class="h3 mb-2 fw-bold text-dark">
+                  <i class="bi bi-person-plus me-2"></i>Registrar Nuevo Usuario
+                </h1>
+                <p class="text-muted">Completa los datos para crear una nueva cuenta de usuario</p>
+              </div>
+              <a href="gestionUsuarios.php" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left me-2"></i> Volver a Usuarios
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alertas -->
+        <?php
+          $ok    = $_GET['ok']    ?? null;
+          $error = $_GET['error'] ?? null;
+          
+          if ($ok === 'creado') {
+            echo '<div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle me-2"></i> Usuario registrado correctamente.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                  </div>';
+          } elseif ($error) {
+            $msg = 'Ocurrió un error.';
+            if ($error === 'usuario_duplicado') $msg = 'El nombre de usuario ya existe. Elegí otro.';
+            if ($error === 'faltan_campos')    $msg = 'Completá todos los campos obligatorios.';
+            if ($error === 'rol_invalido')     $msg = 'Rol inválido.';
+            if ($error === 'insert')           $msg = 'No se pudo registrar el usuario.';
+            
+            echo '<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-triangle me-2"></i> ' . htmlspecialchars($msg, ENT_QUOTES, 'UTF-8') . '
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                  </div>';
+          }
+        ?>
+
+        <!-- Formulario -->
+        <div class="card">
+          <div class="card-header">
+            <h5 class="card-title mb-0">
+              <i class="bi bi-person-badge me-2"></i>Datos del Usuario
+            </h5>
+          </div>
+          <div class="card-body">
+            <form action="GuardarUsuario.php" method="POST" onsubmit="return validar();">
+              <div class="row">
+                <div class="col-md-12 mb-3">
+                  <label for="nombre" class="form-label">
+                    <i class="bi bi-person me-1"></i>Nombre completo
+                  </label>
+                  <input type="text" class="form-control" id="nombre" name="nombre" required 
+                         placeholder="Ingresa el nombre completo del usuario">
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <label for="usuario" class="form-label">
+                    <i class="bi bi-at me-1"></i>Usuario
+                  </label>
+                  <input type="text" class="form-control" id="usuario" name="usuario" required 
+                         placeholder="Nombre de usuario único">
+                  <div class="form-text">
+                    <i class="bi bi-info-circle me-1"></i>Debe ser único. Se verificará antes de crear.
+                  </div>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <label for="clave" class="form-label">
+                    <i class="bi bi-key me-1"></i>Contraseña
+                  </label>
+                  <div class="input-group">
+                    <input type="password" class="form-control" id="clave" name="clave" required 
+                           minlength="6" placeholder="Mínimo 6 caracteres">
+                    <button type="button" class="btn btn-outline-secondary" onclick="togglePass()">
+                      <i class="bi bi-eye" id="eye-icon"></i>
+                    </button>
+                  </div>
+                  <div class="form-text">
+                    <i class="bi bi-shield-check me-1"></i>Mínimo 6 caracteres.
+                  </div>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <label for="rol" class="form-label">
+                    <i class="bi bi-person-gear me-1"></i>Rol
+                  </label>
+                  <select class="form-select" id="rol" name="rol" required>
+                    <option value="" selected disabled>Seleccioná un rol</option>
+                    <option value="admin">Administrador</option>
+                    <option value="Supervisor">Supervisor</option>
+                    <option value="empleado">Empleado</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <div class="form-check h-100 d-flex align-items-center">
+                    <input class="form-check-input me-2" type="checkbox" id="estado" name="estado" checked>
+                    <label class="form-check-label fw-semibold" for="estado">
+                      <i class="bi bi-toggle-on me-1"></i>Usuario Activo
+                    </label>
+                  </div>
+                  <div class="form-text">
+                    <i class="bi bi-info-circle me-1"></i>Desmarcar para crear usuario inactivo
+                  </div>
+                </div>
+
+                <div class="col-12 mt-4">
+                  <button type="submit" class="btn btn-success w-100 py-2">
+                    <i class="bi bi-person-plus me-2"></i> Registrar Usuario
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
+  </div>
 
-    <button type="submit" class="btn btn-success">Registrar</button>
-  </form>
-</div>
+  <footer class="text-center py-4 mt-4">
+    <small>© <?= date('Y'); ?> GRETA Estética · Todos los derechos reservados</small>
+  </footer>
 
-<footer class="text-white text-center p-3 mt-5" style="background-color:black;">
-  <p>&copy; 2025 Grupo GRETA | Contacto: GIA.com</p>
-</footer>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <script>
+    // Toggle sidebar en vista móvil
+    document.getElementById('sidebarToggle').addEventListener('click', function() {
+      document.querySelector('.sidebar').classList.toggle('show');
+    });
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-  function validar() {
-    const nombre  = document.getElementById('nombre').value.trim();
-    const usuario = document.getElementById('usuario').value.trim();
-    const clave   = document.getElementById('clave').value;
+    // Validación del formulario
+    function validar() {
+      const nombre  = document.getElementById('nombre').value.trim();
+      const usuario = document.getElementById('usuario').value.trim();
+      const clave   = document.getElementById('clave').value;
+      const rol     = document.getElementById('rol').value;
 
-    if (!nombre || !usuario || !clave) {
-      alert('Completá todos los campos.');
-      return false;
+      if (!nombre || !usuario || !clave || !rol) {
+        alert('Completá todos los campos obligatorios.');
+        return false;
+      }
+      if (clave.length < 6) {
+        alert('La contraseña debe tener al menos 6 caracteres.');
+        return false;
+      }
+      return true;
     }
-    if (clave.length < 6) {
-      alert('La contraseña debe tener al menos 6 caracteres.');
-      return false;
+
+    // Mostrar/ocultar contraseña
+    function togglePass() {
+      const input = document.getElementById('clave');
+      const icon = document.getElementById('eye-icon');
+      
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('bi-eye');
+        icon.classList.add('bi-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye');
+      }
     }
-    return true;
-  }
-  function togglePass() {
-    const input = document.getElementById('clave');
-    input.type = input.type === 'password' ? 'text' : 'password';
-  }
-</script>
+
+    // Efecto de enfoque en campos del formulario
+    document.querySelectorAll('.form-control, .form-select').forEach(element => {
+      element.addEventListener('focus', function() {
+        this.parentElement.classList.add('focused');
+      });
+      
+      element.addEventListener('blur', function() {
+        this.parentElement.classList.remove('focused');
+      });
+    });
+  </script>
 </body>
 </html>

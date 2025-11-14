@@ -1,3 +1,39 @@
+<?php
+// Conexión a la base de datos
+$servername = "localhost";
+$username = "root"; // Cambia por tu usuario
+$password = ""; // Cambia por tu password
+$dbname = "abmgreta";
+
+// Crear conexión
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Verificar conexión
+if ($conn->connect_error) {
+    die("Error de conexión: " . $conn->connect_error);
+}
+
+// Consulta para obtener los precios de los servicios específicos de microblading
+$sql = "SELECT nombre, precio FROM servicio WHERE nombre IN ('Microblading', 'Microshading') AND estado = 1";
+$result = $conn->query($sql);
+
+// Verificar si la consulta fue exitosa
+if ($result === FALSE) {
+    // Mostrar error pero no detener la ejecución
+    error_log("Error en consulta SQL: " . $conn->error);
+    $precios = array();
+} else {
+    $precios = array();
+    if ($result->num_rows > 0) {
+        while($row = $result->fetch_assoc()) {
+            $precios[$row['nombre']] = $row['precio'];
+        }
+    }
+}
+
+$conn->close();
+?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -510,6 +546,26 @@
       color: #666;
     }
     
+    .boton {
+      background: linear-gradient(135deg, #000, #333);
+      color: white;
+      font-weight: bold;
+      padding: 12px 25px;
+      border-radius: 30px;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      display: inline-block;
+      border: none;
+      cursor: pointer;
+      font-family: 'Montserrat', sans-serif;
+    }
+    
+    .boton:hover {
+      background: linear-gradient(135deg, #f0c0d0, #e91e63);
+      transform: translateY(-3px);
+      box-shadow: 0 10px 20px rgba(240, 192, 208, 0.3);
+    }
+    
     .servicio-icono {
       width: 40px;
       height: 40px;
@@ -633,6 +689,24 @@
       line-height: 1.6;
     }
 
+    .cta-boton {
+      background: linear-gradient(135deg, #f0c0d0, #e91e63);
+      color: white;
+      font-weight: bold;
+      padding: 15px 40px;
+      border-radius: 30px;
+      text-decoration: none;
+      font-size: 1.2rem;
+      transition: all 0.3s ease;
+      display: inline-block;
+      box-shadow: 0 10px 25px rgba(240, 192, 208, 0.3);
+    }
+    
+    .cta-boton:hover {
+      transform: translateY(-5px) scale(1.05);
+      box-shadow: 0 15px 35px rgba(240, 192, 208, 0.5);
+    }
+
     footer {
       text-align: center;
       padding: 30px;
@@ -698,20 +772,19 @@
           <img src="../img/microblading 3.jpg" alt="Microblading tradicional">
         </div>
         <div class="servicio-contenido">
-          <h3><span class="servicio-icono">✏️</span> Microblading Tradicional</h3>
-          <p>Maquillaje semipermanente que imita los pelitos naturales. Ideal para rellenar, dar forma o crear cejas totalmente nuevas.</p>
+          <h3><span class="servicio-icono">✏️</span> Microblading</h3>
+          <p>Maquillaje semipermanente en cejas que imita los pelitos naturales. Ideal para rellenar, dar forma o crear cejas totalmente nuevas.</p>
           
           <button class="servicio-toggle">Ver detalles <i class="fas fa-chevron-down"></i></button>
           
           <div class="servicio-details">
             <h4>¿Qué incluye?</h4>
             <ul>
-              <li>Sesión inicial de 2 horas</li>
-              <li>Diseño personalizado de cejas</li>
-              <li>Aplicación con técnica microblading</li>
-              <li>Retoque obligatorio a los 20 días</li>
-              <li>Pigmentos naturales hipoalergénicos</li>
-              <li>Duración: 12-18 meses</li>
+              <li>Maquillaje semipermanente trabajando sobre la primera capa de la piel</li>
+              <li>Imitación de pelitos naturales</li>
+              <li>Pigmentos naturales de máxima duración (1 año)</li>
+              <li>3 sesiones (segunda sesión después de 20 días)</li>
+              <li>Diseño personalizado según tu rostro</li>
             </ul>
             
             <div class="beneficios-grid">
@@ -726,7 +799,7 @@
                 <div class="beneficio-icono"><i class="fas fa-calendar-alt"></i></div>
                 <div class="beneficio-texto">
                   <h4>Durabilidad</h4>
-                  <p>Hasta 18 meses</p>
+                  <p>Hasta 1 año</p>
                 </div>
               </div>
               <div class="beneficio-item">
@@ -739,15 +812,16 @@
             </div>
 
             <div class="info-adicional">
-              <strong>💡 Tercera sesión:</strong> $95.000 si se realiza dentro de los 2 meses posteriores (efectivo)
+              <strong>💡 Tercera sesión:</strong> $95.000 si se realiza dentro de los 2 meses posteriores (abonando en efectivo)
             </div>
           </div>
           
           <div class="servicio-precio">
             <div class="precio-container">
-              <span class="precio">$154.000</span>
-              <span class="precio-promo">Efectivo o transferencia</span>
+              <span class="precio">$<?php echo isset($precios['Microblading']) ? number_format($precios['Microblading'], 0, ',', '.') : '170.000'; ?></span>
+              <span class="precio-promo">Incluye sesión inicial + retoque</span>
             </div>
+            <a href="../Calendario.php" class="boton">Reservar</a>
           </div>
         </div>
       </div>
@@ -759,19 +833,18 @@
         </div>
         <div class="servicio-contenido">
           <h3><span class="servicio-icono"><i class="fas fa-fill-drip"></i></span> Microshading</h3>
-          <p>Efecto polvo en cejas - técnica suave que crea cejas maquilladas con sombra, ideal para forma y definición.</p>
+          <p>✨ Efecto polvo en cejas ✨<br>Técnica de micropigmentación suave y natural, ideal para dar forma y definición a tus cejas, como si estuvieran maquilladas con sombra.</p>
           
           <button class="servicio-toggle">Ver detalles <i class="fas fa-chevron-down"></i></button>
           
           <div class="servicio-details">
             <h4>¿Qué incluye?</h4>
             <ul>
-              <li>Sesión inicial completa</li>
-              <li>Evaluación facial personalizada</li>
-              <li>Técnica microshading profesional</li>
-              <li>Retoque obligatorio en primer mes</li>
-              <li>Pigmentos de alta calidad</li>
-              <li>Duración: 1 año aprox.</li>
+              <li>Técnica de micropigmentación suave y natural</li>
+              <li>Efecto polvo como cejas maquilladas con sombra</li>
+              <li>Perfecto para dar forma y definición</li>
+              <li>Duración: 1 año aproximadamente</li>
+              <li>Sesión inicial + retoque obligatorio en el primer mes</li>
             </ul>
             
             <div class="beneficios-grid">
@@ -779,21 +852,21 @@
                 <div class="beneficio-icono"><i class="fas fa-paint-brush"></i></div>
                 <div class="beneficio-texto">
                   <h4>Efecto Polvo</h4>
-                  <p>Como maquillada</p>
+                  <p>Como maquillada con sombra</p>
                 </div>
               </div>
               <div class="beneficio-item">
                 <div class="beneficio-icono"><i class="fas fa-cloud"></i></div>
                 <div class="beneficio-texto">
                   <h4>Acabado Suave</h4>
-                  <p>Look natural</p>
+                  <p>Look natural y definido</p>
                 </div>
               </div>
               <div class="beneficio-item">
                 <div class="beneficio-icono"><i class="fas fa-shield-alt"></i></div>
                 <div class="beneficio-texto">
-                  <h4>Mínima Invasión</h4>
-                  <p>Técnica segura</p>
+                  <h4>Duración</h4>
+                  <p>1 año aproximadamente</p>
                 </div>
               </div>
             </div>
@@ -805,9 +878,10 @@
           
           <div class="servicio-precio">
             <div class="precio-container">
-              <span class="precio">$159.300</span>
-              <span class="precio-promo">Efectivo o transferencia</span>
+              <span class="precio">$<?php echo isset($precios['Microshading']) ? number_format($precios['Microshading'], 0, ',', '.') : '177.000'; ?></span>
+              <span class="precio-promo">Sesión inicial + retoque obligatorio</span>
             </div>
+            <a href="../Calendario.php" class="boton">Reservar</a>
           </div>
         </div>
       </div>
@@ -819,6 +893,7 @@
     <div class="cta-section">
       <h2>✨ Transforma Tu Mirada Hoy</h2>
       <p>Despierta cada mañana con cejas perfectas. Elige la técnica que mejor se adapte a tu estilo y disfruta de resultados naturales y duraderos.</p>
+      <a href="../Calendario.php" class="cta-boton">📅 Reservar Turno Ahora</a>
     </div>
   </section>
 

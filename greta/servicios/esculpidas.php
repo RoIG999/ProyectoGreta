@@ -1,3 +1,39 @@
+<?php
+// Conexión a la base de datos
+$servername = "localhost";
+$username = "root"; // Cambia por tu usuario
+$password = ""; // Cambia por tu password
+$dbname = "abmgreta";
+
+// Crear conexión
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Verificar conexión
+if ($conn->connect_error) {
+    die("Error de conexión: " . $conn->connect_error);
+}
+
+// Consulta para obtener los precios de los servicios específicos de uñas
+$sql = "SELECT nombre, precio FROM servicio WHERE nombre IN ('Kapping', 'Semipermanente', 'Esculpidas') AND estado = 1";
+$result = $conn->query($sql);
+
+// Verificar si la consulta fue exitosa
+if ($result === FALSE) {
+    // Mostrar error pero no detener la ejecución
+    error_log("Error en consulta SQL: " . $conn->error);
+    $precios = array();
+} else {
+    $precios = array();
+    if ($result->num_rows > 0) {
+        while($row = $result->fetch_assoc()) {
+            $precios[$row['nombre']] = $row['precio'];
+        }
+    }
+}
+
+$conn->close();
+?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -683,7 +719,7 @@
           </div>
           
           <div class="servicio-precio">
-            <span class="precio">$4.500</span>
+            <span class="precio">$<?php echo isset($precios['Kapping']) ? number_format($precios['Kapping'], 0, ',', '.') : '23.000'; ?></span>
             <a href="../Calendario.php" class="boton">Reservar</a>
           </div>
         </div>
@@ -736,19 +772,19 @@
           </div>
           
           <div class="servicio-precio">
-            <span class="precio">$3.800</span>
+            <span class="precio">$<?php echo isset($precios['Semipermanente']) ? number_format($precios['Semipermanente'], 0, ',', '.') : '17.600'; ?></span>
             <a href="../Calendario.php" class="boton">Reservar</a>
           </div>
         </div>
       </div>
 
-      <!-- Servicio: Esculpidas Clásicas -->
+      <!-- Servicio: Esculpidas -->
       <div class="servicio-card">
         <div class="servicio-imagen">
-          <img src="../img/uñas 11.png" alt="Uñas esculpidas clásicas">
+          <img src="../img/uñas 11.png" alt="Uñas esculpidas">
         </div>
         <div class="servicio-contenido">
-          <h3><span class="servicio-icono"><i class="fas fa-gem"></i></span> Esculpidas Clásicas</h3>
+          <h3><span class="servicio-icono"><i class="fas fa-gem"></i></span> Esculpidas</h3>
           <p>Crea la longitud y forma perfecta desde cero. Uñas resistentes y personalizadas para un look espectacular.</p>
           
           <button class="servicio-toggle">Ver detalles <i class="fas fa-chevron-down"></i></button>
@@ -789,7 +825,7 @@
           </div>
           
           <div class="servicio-precio">
-            <span class="precio">$5.200</span>
+            <span class="precio">$<?php echo isset($precios['Esculpidas']) ? number_format($precios['Esculpidas'], 0, ',', '.') : '27.700'; ?></span>
             <a href="../Calendario.php" class="boton">Reservar</a>
           </div>
         </div>
