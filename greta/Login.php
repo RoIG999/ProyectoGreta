@@ -278,7 +278,7 @@
       <div class="meta">
         <span>© 2025 GRETA</span>
         <span>·</span>
-        <a href="inicio.php">Volver al sitio</a>
+        <a href="Inicio.php">Volver al sitio</a>
       </div>
     </section>
   </main>

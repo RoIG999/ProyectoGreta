@@ -432,7 +432,7 @@ foreach ($turnos_pagados as $turno) {
                             <i class="bi bi-calendar-x"></i>
                             <h5>No hay turnos programados</h5>
                             <p class="text-muted">No hay turnos programados para el <?= $fecha_formateada ?></p>
-                            <a href="calendario.php" class="btn btn-supervisora">
+                            <a href="Calendario.php" class="btn btn-supervisora">
                                 <i class="bi bi-calendar-plus me-1"></i> Agendar Turno
                             </a>
                         </div>

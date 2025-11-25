@@ -681,10 +681,10 @@
   <!-- Carrusel -->
   <div class="swiper">
     <div class="swiper-wrapper">
-      <div class="swiper-slide"><img src="../img/Bronceado 6.jpg" alt="Bronceado profesional"></div>
+      <div class="swiper-slide"><img src="../img/bronceado 6.jpg" alt="Bronceado profesional"></div>
       <div class="swiper-slide"><img src="../img/Bronceado 3.png" alt="Resultado bronceado natural"></div>
       <div class="swiper-slide"><img src="../img/Bronceado 4.png" alt="Bronceado uniforme"></div>
-      <div class="swiper-slide"><img src="../img/Bronceado 7.jpg" alt="Piel dorada y saludable"></div>
+      <div class="swiper-slide"><img src="../img/bronceado 7.jpg" alt="Piel dorada y saludable"></div>
     </div>
 
     <!-- Botones -->
@@ -773,10 +773,11 @@
         <!-- PRECIO DESDE BASE DE DATOS -->
         <?php
         // Conexión a la base de datos
-        $servername = "127.0.0.1";
-        $username = "root"; // Cambiar por tu usuario de BD
-        $password = ""; // Cambiar por tu contraseña de BD
-        $dbname = "abmgreta";
+      $servername = "sql210.ezyro.com"; // O la IP de tu máquina
+$username = "ezyro_40403348"; 
+$password = "50f9f39"; // Tu password de XAMPP
+$dbname = "ezyro_40403348_abmgreta"; // Tu base de datos
+
 
         // Crear conexión
         $conn = new mysqli($servername, $username, $password, $dbname);

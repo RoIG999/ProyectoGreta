@@ -1053,7 +1053,7 @@ foreach ($turnos_pagados as $turno) {
                                 </div>
                                 <div class="col-md-6">
                                     <div class="d-flex gap-2 justify-content-end">
-                                        <a href="calendario.php" class="btn btn-primary">
+                                        <a href="Calendario.php" class="btn btn-primary">
                                             <i class="bi bi-plus-circle me-2"></i> Nuevo Turno
                                         </a>
                                     </div>
@@ -1254,7 +1254,7 @@ unset($_SESSION['whatsapp_telefono']);
                                     <i class="bi bi-calendar-x"></i>
                                     <h4 class="text-dark">No hay turnos programados</h4>
                                     <p class="text-muted mb-3">No hay turnos agendados para el <?= $fecha_formateada ?></p>
-                                    <a href="calendario.php" class="btn btn-primary">
+                                    <a href="Calendario.php" class="btn btn-primary">
                                         <i class="bi bi-plus-circle me-2"></i> Agendar Nuevo Turno
                                     </a>
                                 </div>

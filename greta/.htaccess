@@ -1,0 +1,13 @@
+# 1. Desactivar la vista de directorios (Directory Listing)
+# Es mejor mostrar un 403 que listar los archivos, pero 'Options -Indexes' evita ambos
+Options -Indexes
+
+# 2. Definir el archivo de índice (página de inicio)
+# Asegúrate de que el nombre de tu página principal (la que subiste)
+# esté en la lista, por ejemplo: index.html
+DirectoryIndex Inicio.php
+
+# 3. Módulo de Reescritura (esencial para frameworks)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+</IfModule>

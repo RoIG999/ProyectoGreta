@@ -487,7 +487,7 @@
       <a href="Servicios.php"><i class="fas fa-spa"></i> Servicios</a>
       <a href="Nosotros.php"><i class="fas fa-users"></i> Nosotros</a>
       <a href="Contacto.php"><i class="fas fa-envelope"></i> Contacto</a>
-      <a href="#" class="abrir-modal"><i class="fas fa-calendar-alt"></i> Reservar Turno</a>
+      <a href="Calendario.php"><i class="fas fa-calendar-alt"></i> Reservar Turno</a>
       <a href="Login.php"><i class="fas fa-user"></i> Ingreso</a>
     </nav>
   </header>

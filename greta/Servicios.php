@@ -648,7 +648,7 @@ $fondos_default = [
       <a href="Contacto.php" <?php echo ($pagina_actual == 'Contacto.php') ? 'class="activo"' : ''; ?>>
         <i class="fas fa-envelope"></i> Contacto
       </a>
-      <a href="calendario.php">
+      <a href="Calendario.php">
         <i class="fas fa-calendar-check"></i> Reservar Turno
       </a>
       <a href="Login.php">

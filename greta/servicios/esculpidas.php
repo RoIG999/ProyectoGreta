@@ -1,9 +1,8 @@
 <?php
-// Conexión a la base de datos
-$servername = "localhost";
-$username = "root"; // Cambia por tu usuario
-$password = ""; // Cambia por tu password
-$dbname = "abmgreta";
+$servername = "sql210.ezyro.com"; // O la IP de tu máquina
+$username = "ezyro_40403348"; 
+$password = "50f9f39"; // Tu password de XAMPP
+$dbname = "ezyro_40403348_abmgreta"; // Tu base de datos
 
 // Crear conexión
 $conn = new mysqli($servername, $username, $password, $dbname);
